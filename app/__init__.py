@@ -7,9 +7,10 @@ from flask_script import Manager
 from flask_debugtoolbar import DebugToolbarExtension
 from flask_restful import Api
 
-
 # set file extension for upload
 ALLOWED_EXTENSIONS = set(['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'])
+
+
 
 application = Flask(__name__)
 

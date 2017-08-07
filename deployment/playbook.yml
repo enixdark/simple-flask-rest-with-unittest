@@ -1,0 +1,6 @@
+- hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: deploy app
+      debug:
+        msg: "hello world"

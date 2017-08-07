@@ -1,11 +1,79 @@
 image: "python:2.7"
 
-test:
-  script:
-  # this configures Django application to use attached postgres database that is run on `postgres` host
-  #- export DATABASE_URL=postgres://postgres:@postgres:5432/python-test-app
-  - apt-get update -qy
-  - apt-get install -y python-dev python-pip
-  - pip install -r requirements.txt
-  - python manage.py test
+variables:
+  DOCKER_IMAGE_NAME: flask_rest_example
+  DOCKER_REGISTRY_HOST: docker-registry
 
+before_script:
+  - git submodule update --init
+  - ls -lha
+  - export DOCKER_TAG_NAME=`echo $CI_BUILD_REF | cut -c1-7`
+
+stages:
+  - test
+  - build
+  - deploy
+
+pep8:
+  stage: test
+  script:
+    - pep8 --select=W191,W291,W292,W293,W391,E101,E301,E303 --filename=*.ini,*.conf,*.lua,*.html,*.yml,*.types,deployment/* --max-line-length=160 .
+  allow_failure: true
+
+ansible-lint:
+  stage: test
+  script:
+    - ansible-lint -t deprecation,formatting,repeatability,templating deployment/site.yml
+  allow_failure: true
+
+hadolint:
+  stage: test
+  script:
+    - EXIT_STATUS=0
+    - for i in */Dockerfile; do echo \# $i; docker run --rm -i lukasmartinelli/hadolint < $i || EXIT_STATUS=$?; done
+    - exit $EXIT_STATUS
+  allow_failure: true
+
+jshint:
+  stage: test
+  script:
+    - jshint .
+  allow_failure: true
+
+markdown-lint:
+  stage: test
+  script:
+    - mdl .
+  allow_failure: true
+
+rubocop:
+  stage: test
+  script:
+    - rubocop -R
+  allow_failure: true
+  
+
+test:
+  stage: test
+  script:
+    - apt-get update -qy
+    - apt-get install -y python-dev python-pip
+    - pip install -r requirements.txt
+    - python manage.py test
+
+rest_app:
+  stage: build
+  script:
+    - docker build -t $DOCKER_TAG_NAME .
+    - docker push $DOCKER_REGISTRY_HOST/$DOCKER_IMAGE_NAME/account-service:$DOCKER_TAG_NAME
+
+
+deploy:
+  stage: deploy
+  script:
+    - export ANSIBLE_FORCE_COLOR=1
+    - ansible-playbook -i deployment
+  only:
+    - master
+    - development
+    - stage
